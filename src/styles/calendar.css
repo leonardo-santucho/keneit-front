@@ -1,0 +1,25 @@
+/* Calendar overrides */
+.react-calendar {
+  @apply w-full rounded-lg bg-white p-4 shadow;
+}
+.react-calendar__navigation {
+  @apply flex justify-between items-center mb-4;
+}
+.react-calendar__tile {
+  @apply p-2 rounded-full text-center transition-colors;
+}
+.react-calendar__tile--now {
+  @apply bg-indigo-100 font-bold;
+}
+.react-calendar__tile--active {
+  @apply bg-indigo-500 text-white;
+}
+.react-calendar__tile--hasActive {
+  @apply bg-indigo-400 text-white;
+}
+.react-calendar__month-view__days__day--weekend {
+  @apply text-gray-500;
+}
+.react-calendar__tile:hover {
+  @apply bg-indigo-200 text-white;
+}
