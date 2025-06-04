@@ -93,18 +93,27 @@ export default function PatientDailyFollowUp() {
                 isChecked ? "border-green-500 bg-green-50" : "border-transparent"
               }`}
             >
-              <div className="flex justify-between items-center">
-                <div className={isChecked ? "text-gray-600" : ""}>
-                  <p className="font-medium text-lg mb-1">{p.name}</p>
 
-                  <p className="text-sm text-gray-500">
-                    Sesiones: {p.sessionsDone} / {p.sessionsPlanned} ({p.frequency})<br />
-                    Última sesión: {lastSessionFormatted} (hace {daysAgo} días)<br />
-                    KF: {p.kinesiologist}
+              <div className="flex justify-between items-start">
+                <div className={`flex flex-col gap-1 text-sm ${isChecked ? "text-gray-600" : "text-gray-500"}`}>
+                  <p className="font-medium text-base text-gray-900">{p.name}</p>
+                  <p>
+                    Sesiones: {p.sessionsDone}/{p.sessionsPlanned}
+                    <span className="ml-1 text-xs text-gray-400 whitespace-nowrap">({p.frequency})</span>
                   </p>
+                  <p>
+                    Últ. sesión:{" "}
+                    {p.lastSession
+                      ? new Date(p.lastSession)
+                          .toLocaleDateString("es-AR", { day: "numeric", month: "short" })
+                          .replace(/(^\d+\s)(\w)/, (_, d, l) => d + l.toUpperCase())
+                      : "-"}
+                    <span className="ml-1 text-xs text-gray-400 whitespace-nowrap">(hace 6 días)</span>
+                  </p>
+                  <p>Kinesiólogo Frec.: {p.kinesiologist}</p>
                 </div>
-                <div className="flex gap-2 items-center">
-                  <label className="flex items-center gap-1 text-sm">
+                <div className="flex items-center">
+                  <label className="flex items-center gap-1 text-sm whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={isChecked}
@@ -114,6 +123,8 @@ export default function PatientDailyFollowUp() {
                   </label>
                 </div>
               </div>
+
+
             </div>
           );
         })}
