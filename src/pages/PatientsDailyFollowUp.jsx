@@ -1,3 +1,4 @@
+// PatientDailyFollowUp.jsx
 import { useState, useRef } from "react";
 import PatientCalendar from "../components/PatientCalendar";
 
@@ -179,7 +180,6 @@ export default function PatientDailyFollowUp() {
 
               {expanded[p.id] && (
                 <div className="mt-4 space-y-3 text-sm text-gray-700">
-                  
                   <PatientCalendar patientId={p.id} records={records} />
 
                   <p><strong>Frecuencia:</strong> {p.frequency}</p>

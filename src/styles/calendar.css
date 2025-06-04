@@ -1,25 +1,35 @@
-/* Calendar overrides */
-.react-calendar {
-  @apply w-full rounded-lg bg-white p-4 shadow;
+/* calendar.css */
+/*
+.rdp {
+  @apply w-full text-sm text-gray-900;
 }
-.react-calendar__navigation {
-  @apply flex justify-between items-center mb-4;
+
+.rdp-caption {
+  @apply flex justify-between items-center mb-3 font-semibold;
 }
-.react-calendar__tile {
-  @apply p-2 rounded-full text-center transition-colors;
+
+.rdp-nav_button {
+  @apply p-1 rounded hover:bg-gray-200 transition;
 }
-.react-calendar__tile--now {
-  @apply bg-indigo-100 font-bold;
+
+.rdp-table {
+  @apply w-full border-collapse;
 }
-.react-calendar__tile--active {
-  @apply bg-indigo-500 text-white;
+
+.rdp-head_cell {
+  @apply text-xs text-gray-500 font-medium pb-2;
 }
-.react-calendar__tile--hasActive {
-  @apply bg-indigo-400 text-white;
+
+.rdp-day {
+  @apply p-2 text-center rounded-full hover:bg-gray-100 transition;
 }
-.react-calendar__month-view__days__day--weekend {
-  @apply text-gray-500;
+
+.rdp-day_today {
+  @apply font-bold text-indigo-500;
 }
-.react-calendar__tile:hover {
-  @apply bg-indigo-200 text-white;
+
+.rdp-day_selected,
+.rdp-day_seen {
+  @apply bg-indigo-600 text-white font-semibold;
 }
+*/
