@@ -53,9 +53,9 @@ export default function Topbar() {
                   onClick={() => setOpen(false)}
                 />
                 <FlyoutItem
-                  label="Calendar"
-                  description="Assigned appointments"
-                  to="/calendar"
+                  label="Matrix"
+                  description="Matriz de sesiones"
+                  to="/matrix"
                   onClick={() => setOpen(false)}
                 />
                 <FlyoutItem
