@@ -130,6 +130,9 @@ export default function Matrix() {
         <thead>
           <tr>
             <th className="border px-2 py-1 bg-gray-100 sticky left-0 z-10">Paciente</th>
+            <th className="border px-2 py-1 bg-gray-100 sticky left-[140px] z-10">Sesiones totales</th>
+            <th className="border px-2 py-1 bg-gray-100 sticky left-[200px] z-10">Atendidas</th>
+            <th className="border px-2 py-1 bg-gray-100 sticky left-[280px] z-10">Pendientes</th>
             {dates.map((date) => {
               const isCurrentMonth = date.getMonth() === currentMonth;
               const isToday = date.toISOString().split("T")[0] === todayStr;
@@ -150,27 +153,36 @@ export default function Matrix() {
           </tr>
         </thead>
         <tbody>
-          {data.map((patientRow, idx) => (
-            <tr key={idx}>
-              <td className="border px-2 py-1 sticky left-0 bg-white z-0 whitespace-nowrap">
-                {patientRow.patient}
-              </td>
-              {dates.map((date) => {
-                const dateStr = date.toISOString().split("T")[0];
-                const session = patientRow.sessions.find((s) => s.date === dateStr);
-                const isToday = dateStr === todayStr;
-                return (
-                  <td
-                    key={dateStr}
-                    className={`border px-2 py-1 text-center cursor-pointer hover:bg-gray-100 ${isToday ? 'bg-yellow-50' : ''}`}
-                    onClick={() => handleCellClick(idx, dateStr)}
-                  >
-                    {session ? session.therapist : ""}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+          {data.map((patientRow, idx) => {
+            const monthDates = dates.filter(date => date.getMonth() === currentMonth);
+            const sessionDates = patientRow.sessions.map(s => s.date);
+            const attended = monthDates.filter(date => sessionDates.includes(date.toISOString().split("T")[0])).length;
+            const total = monthDates.length;
+            const pending = total - attended;
+
+            return (
+              <tr key={idx}>
+                <td className="border px-2 py-1 sticky left-0 bg-white z-0 whitespace-nowrap">{patientRow.patient}</td>
+                <td className="border px-2 py-1 text-center sticky left-[140px] bg-white z-0">{total}</td>
+                <td className="border px-2 py-1 text-center sticky left-[200px] bg-white z-0">{attended}</td>
+                <td className="border px-2 py-1 text-center sticky left-[280px] bg-white z-0">{pending}</td>
+                {dates.map((date) => {
+                  const dateStr = date.toISOString().split("T")[0];
+                  const session = patientRow.sessions.find((s) => s.date === dateStr);
+                  const isToday = dateStr === todayStr;
+                  return (
+                    <td
+                      key={dateStr}
+                      className={`border px-2 py-1 text-center cursor-pointer hover:bg-gray-100 ${isToday ? 'bg-yellow-50' : ''}`}
+                      onClick={() => handleCellClick(idx, dateStr)}
+                    >
+                      {session ? session.therapist : ""}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
@@ -189,4 +201,4 @@ export default function Matrix() {
       />
     </div>
   );
-} 
+}
