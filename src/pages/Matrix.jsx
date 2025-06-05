@@ -1,7 +1,9 @@
 // Matrix.jsx
 import React, { useState, useEffect } from "react";
 import { patientsMock } from "../data/patientsMock";
+import { kinesiologistsMock } from "../data/kinesiologistsMock";
 import TherapistSelector from "../components/TherapistSelector";
+import TherapistSummary from "../components/TherapistSummary";
 
 export default function Matrix() {
   const [data, setData] = useState([]);
@@ -79,6 +81,23 @@ export default function Matrix() {
     return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
   };
 
+  const therapistStats = {};
+  kinesiologistsMock.forEach(k => {
+    therapistStats[k.initials] = 0;
+  });
+
+  const monthDateStrs = dates
+    .filter(date => date.getMonth() === currentMonth)
+    .map(date => date.toISOString().split("T")[0]);
+
+  data.forEach((patient) => {
+    patient.sessions.forEach((s) => {
+      if (monthDateStrs.includes(s.date)) {
+        therapistStats[s.therapist] = (therapistStats[s.therapist] || 0) + 1;
+      }
+    });
+  });
+
   return (
     <div className="overflow-auto">
       <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
@@ -111,9 +130,6 @@ export default function Matrix() {
         <thead>
           <tr>
             <th className="border px-2 py-1 bg-gray-100 sticky left-0 z-10">Paciente</th>
-            <th className="border px-2 py-1 bg-gray-100 sticky left-[140px] z-10">Sesiones totales</th>
-            <th className="border px-2 py-1 bg-gray-100 sticky left-[200px] z-10">Atendidas</th>
-            <th className="border px-2 py-1 bg-gray-100 sticky left-[280px] z-10">Pendientes</th>
             {dates.map((date) => {
               const isCurrentMonth = date.getMonth() === currentMonth;
               const isToday = date.toISOString().split("T")[0] === todayStr;
@@ -134,36 +150,27 @@ export default function Matrix() {
           </tr>
         </thead>
         <tbody>
-          {data.map((patientRow, idx) => {
-            const monthDates = dates.filter(date => date.getMonth() === currentMonth);
-            const sessionDates = patientRow.sessions.map(s => s.date);
-            const attended = monthDates.filter(date => sessionDates.includes(date.toISOString().split("T")[0])).length;
-            const total = monthDates.length;
-            const pending = total - attended;
-
-            return (
-              <tr key={idx}>
-                <td className="border px-2 py-1 sticky left-0 bg-white z-0 whitespace-nowrap">{patientRow.patient}</td>
-                <td className="border px-2 py-1 text-center sticky left-[140px] bg-white z-0">{total}</td>
-                <td className="border px-2 py-1 text-center sticky left-[200px] bg-white z-0">{attended}</td>
-                <td className="border px-2 py-1 text-center sticky left-[280px] bg-white z-0">{pending}</td>
-                {dates.map((date) => {
-                  const dateStr = date.toISOString().split("T")[0];
-                  const session = patientRow.sessions.find((s) => s.date === dateStr);
-                  const isToday = dateStr === todayStr;
-                  return (
-                    <td
-                      key={dateStr}
-                      className={`border px-2 py-1 text-center cursor-pointer hover:bg-gray-100 ${isToday ? 'bg-yellow-50' : ''}`}
-                      onClick={() => handleCellClick(idx, dateStr)}
-                    >
-                      {session ? session.therapist : ""}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
+          {data.map((patientRow, idx) => (
+            <tr key={idx}>
+              <td className="border px-2 py-1 sticky left-0 bg-white z-0 whitespace-nowrap">
+                {patientRow.patient}
+              </td>
+              {dates.map((date) => {
+                const dateStr = date.toISOString().split("T")[0];
+                const session = patientRow.sessions.find((s) => s.date === dateStr);
+                const isToday = dateStr === todayStr;
+                return (
+                  <td
+                    key={dateStr}
+                    className={`border px-2 py-1 text-center cursor-pointer hover:bg-gray-100 ${isToday ? 'bg-yellow-50' : ''}`}
+                    onClick={() => handleCellClick(idx, dateStr)}
+                  >
+                    {session ? session.therapist : ""}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
 
@@ -175,6 +182,11 @@ export default function Matrix() {
           visibleRemove={hasTherapistAssigned}
         />
       )}
+
+      <TherapistSummary 
+        therapistStats={therapistStats} 
+        kinesiologists={kinesiologistsMock} 
+      />
     </div>
   );
-}
+} 
