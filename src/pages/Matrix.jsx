@@ -9,6 +9,7 @@ export default function Matrix() {
   const [data, setData] = useState([]);
   const [selectedCell, setSelectedCell] = useState(null);
   const [monthOffset, setMonthOffset] = useState(0);
+  const [fixedTherapist, setFixedTherapist] = useState(null);
 
   useEffect(() => {
     const mapped = patientsMock.map((p) => ({
@@ -39,27 +40,32 @@ export default function Matrix() {
   const todayStr = new Date().toISOString().split("T")[0];
 
   const handleCellClick = (patientIndex, date) => {
-    setSelectedCell({ patientIndex, date });
+    if (fixedTherapist) {
+      assignTherapist(fixedTherapist, patientIndex, date);
+    } else {
+      setSelectedCell({ patientIndex, date });
+    }
   };
 
-  const assignTherapist = (therapist) => {
-    if (!selectedCell || !therapist?.initials) return;
+  const assignTherapist = (therapist, patientIndex = null, date = null) => {
+    const cell = patientIndex !== null && date ? { patientIndex, date } : selectedCell;
+    if (!cell || !therapist?.initials) return;
 
     setData((prev) => {
       const updated = [...prev];
-      const patient = updated[selectedCell.patientIndex];
+      const patient = updated[cell.patientIndex];
 
-      const existing = patient.sessions.find(s => s.date === selectedCell.date);
+      const existing = patient.sessions.find(s => s.date === cell.date);
       if (existing) {
         existing.therapist = therapist.initials;
       } else {
-        patient.sessions.push({ date: selectedCell.date, therapist: therapist.initials });
+        patient.sessions.push({ date: cell.date, therapist: therapist.initials });
       }
 
       return updated;
     });
 
-    setSelectedCell(null);
+    if (!fixedTherapist) setSelectedCell(null);
   };
 
   const removeTherapist = () => {
@@ -124,6 +130,22 @@ export default function Matrix() {
         <h2 className="text-lg font-semibold capitalize text-center w-full sm:w-auto">
           {formatMonthTitle(viewDate)}
         </h2>
+        <div className="flex gap-2 items-center">
+          <label className="text-sm">Fijar kinesiólogo:</label>
+          <select
+            className="border px-2 py-1 text-sm rounded"
+            value={fixedTherapist?.id || ""}
+            onChange={(e) => {
+              const selected = kinesiologistsMock.find(k => k.id === e.target.value);
+              setFixedTherapist(selected || null);
+            }}
+          >
+            <option value="">-- Ninguno --</option>
+            {kinesiologistsMock.map(k => (
+              <option key={k.id} value={k.id}>{k.name} ({k.initials})</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <table className="min-w-full border text-sm">
@@ -171,13 +193,25 @@ export default function Matrix() {
                   const session = patientRow.sessions.find((s) => s.date === dateStr);
                   const isToday = dateStr === todayStr;
                   return (
+                   
                     <td
                       key={dateStr}
                       className={`border px-2 py-1 text-center cursor-pointer hover:bg-gray-100 ${isToday ? 'bg-yellow-50' : ''}`}
                       onClick={() => handleCellClick(idx, dateStr)}
+                      onDoubleClick={() => {
+                        if (fixedTherapist) {
+                          setData((prev) => {
+                            const updated = [...prev];
+                            updated[idx].sessions = updated[idx].sessions.filter(s => s.date !== dateStr);
+                            return updated;
+                          });
+                        }
+                      }}
                     >
                       {session ? session.therapist : ""}
                     </td>
+
+
                   );
                 })}
               </tr>
@@ -186,7 +220,7 @@ export default function Matrix() {
         </tbody>
       </table>
 
-      {selectedCell && (
+      {selectedCell && !fixedTherapist && (
         <TherapistSelector
           onSelect={assignTherapist}
           onCancel={() => setSelectedCell(null)}

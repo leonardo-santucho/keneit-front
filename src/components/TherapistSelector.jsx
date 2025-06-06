@@ -1,7 +1,7 @@
 // TherapistSelector.jsx
 import React, { useState, useEffect } from "react";
-import { kinesiologistsMock } from "../data/kinesiologistsMock";
 import { CheckCircle } from "lucide-react";
+import { fetchTherapists } from "../services/therapists";
 
 export default function TherapistSelector({
   onSelect,
@@ -12,8 +12,14 @@ export default function TherapistSelector({
   const [therapists, setTherapists] = useState([]);
 
   useEffect(() => {
-    setTherapists(kinesiologistsMock);
+    fetchTherapists()
+      .then(setTherapists)
+      .catch((err) => {
+        console.error("Error al cargar therapists:", err);
+        setTherapists([]); // fallback vacío si falla
+      });
   }, []);
+
 
   return (
     <div className="fixed inset-0 bg-gray-700 bg-opacity-60 flex items-center justify-center z-50">
