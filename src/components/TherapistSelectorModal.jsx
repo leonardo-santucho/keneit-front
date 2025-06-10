@@ -1,9 +1,9 @@
-// TherapistSelector.jsx
+// TherapistSelectorModal.jsx
 import React, { useState, useEffect } from "react";
 import { CheckCircle } from "lucide-react";
 import { fetchTherapists } from "../services/therapists";
 
-export default function TherapistSelector({
+export default function TherapistSelectorModal({
   onSelect,
   onCancel,
   onRemove,

@@ -1,101 +1,126 @@
-// Matrix.jsx
-import React, { useState, useEffect } from "react";
-import { patientsMock } from "../data/patientsMock";
-import { kinesiologistsMock } from "../data/kinesiologistsMock";
-import TherapistSelector from "../components/TherapistSelector";
+import React, { useState, useEffect, useMemo } from "react";
+import { fetchPatients } from "../services/patients";
+import { fetchSessions, saveSessionsBulk } from "../services/sessions";
 import TherapistSummary from "../components/TherapistSummary";
+import TherapistSelectorListFixed from "../components/TherapistSelectorListFixed";
 
 export default function Matrix() {
   const [data, setData] = useState([]);
-  const [selectedCell, setSelectedCell] = useState(null);
   const [monthOffset, setMonthOffset] = useState(0);
   const [fixedTherapist, setFixedTherapist] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
 
-  useEffect(() => {
-    const mapped = patientsMock.map((p) => ({
-      patient: p.name,
-      sessions: []
-    }));
-    setData(mapped);
-  }, []);
+  const baseDate = useMemo(() => new Date(), []);
+  const viewDate = useMemo(
+    () => new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1),
+    [baseDate, monthOffset]
+  );
 
-  const baseDate = new Date();
-  const viewDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1);
   const currentMonth = viewDate.getMonth();
   const currentYear = viewDate.getFullYear();
-  const startDate = new Date(currentYear, currentMonth, -4);
-  const endDate = new Date(currentYear, currentMonth + 1, 5);
+  const startDate = new Date(currentYear, currentMonth, -3);
+  const endDate = new Date(currentYear, currentMonth + 1, 3);
 
-  const getDatesInRange = (start, end) => {
-    const dates = [];
-    let current = new Date(start);
-    while (current <= end) {
-      dates.push(new Date(current));
+  const dates = useMemo(() => {
+    const result = [];
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      result.push(new Date(current));
       current.setDate(current.getDate() + 1);
     }
-    return dates;
-  };
+    return result;
+  }, [startDate, endDate]);
 
-  const dates = getDatesInRange(startDate, endDate);
   const todayStr = new Date().toISOString().split("T")[0];
 
-  const handleCellClick = (patientIndex, date) => {
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [patients, sessions] = await Promise.all([
+          fetchPatients(),
+          fetchSessions({ year: viewDate.getFullYear(), month: viewDate.getMonth() + 1 })
+        ]);
+
+        const mapped = patients.map((p) => ({
+          id: p.id,
+          patient: `${p.name} ${p.last_name}`,
+          sessions_quantity: p.sessions_quantity || 0,
+          sessions: sessions
+            .filter(s => s.patient_id === p.id)
+            .map(s => ({
+              date: s.session_date,
+              therapist: s.therapist_initials
+            }))
+        }));
+
+        setData(mapped);
+        setSessionsLoaded(true);
+      } catch (err) {
+        console.error("Error al cargar pacientes o sesiones:", err);
+      }
+    };
+
+    loadData();
+  }, [viewDate]);
+
+  const handleCellClick = (patientId, date) => {
     if (fixedTherapist) {
-      assignTherapist(fixedTherapist, patientIndex, date);
+      assignTherapist(fixedTherapist, patientId, date);
+      setErrorMsg("");
     } else {
-      setSelectedCell({ patientIndex, date });
+      setErrorMsg("Debe seleccionar un kinesiólogo");
     }
   };
 
-  const assignTherapist = (therapist, patientIndex = null, date = null) => {
-    const cell = patientIndex !== null && date ? { patientIndex, date } : selectedCell;
-    if (!cell || !therapist?.initials) return;
+  const assignTherapist = (therapist, patientId, date) => {
+    if (!therapist?.initials) return;
 
-    setData((prev) => {
-      const updated = [...prev];
-      const patient = updated[cell.patientIndex];
-
-      const existing = patient.sessions.find(s => s.date === cell.date);
-      if (existing) {
-        existing.therapist = therapist.initials;
-      } else {
-        patient.sessions.push({ date: cell.date, therapist: therapist.initials });
-      }
-
-      return updated;
-    });
-
-    if (!fixedTherapist) setSelectedCell(null);
+    setData((prev) =>
+      prev.map((p) => {
+        if (p.id !== patientId) return p;
+        const sessions = [...p.sessions];
+        const existing = sessions.find(s => s.date === date);
+        if (existing) {
+          existing.therapist = therapist.initials;
+        } else {
+          sessions.push({ date, therapist: therapist.initials });
+        }
+        return { ...p, sessions };
+      })
+    );
   };
 
-  const removeTherapist = () => {
-    if (!selectedCell) return;
+  const handleSaveChanges = async () => {
+    const flatSessions = data.flatMap((p) =>
+      p.sessions.map((s) => ({
+        patient_id: p.id,
+        therapist_initials: s.therapist,
+        session_date: s.date,
+        notes: null,
+        photo_url: null,
+        audio_url: null,
+      }))
+    );
 
-    setData((prev) => {
-      const updated = [...prev];
-      const patient = updated[selectedCell.patientIndex];
-      patient.sessions = patient.sessions.filter(s => s.date !== selectedCell.date);
-      return updated;
-    });
-
-    setSelectedCell(null);
+    try {
+      await saveSessionsBulk(flatSessions);
+      alert("Sesiones guardadas con éxito.");
+    } catch (err) {
+      console.error("Error al guardar sesiones:", err);
+      alert("Error al guardar sesiones.");
+    }
   };
-
-  const hasTherapistAssigned = selectedCell && data[selectedCell.patientIndex]?.sessions.some(s => s.date === selectedCell.date);
 
   const formatMonthTitle = (date) => {
     return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
   };
 
-  const therapistStats = {};
-  kinesiologistsMock.forEach(k => {
-    therapistStats[k.initials] = 0;
-  });
-
   const monthDateStrs = dates
     .filter(date => date.getMonth() === currentMonth)
     .map(date => date.toISOString().split("T")[0]);
 
+  const therapistStats = {};
   data.forEach((patient) => {
     patient.sessions.forEach((s) => {
       if (monthDateStrs.includes(s.date)) {
@@ -108,53 +133,26 @@ export default function Matrix() {
     <div className="overflow-auto">
       <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
         <div className="flex gap-2">
-          <button
-            className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-            onClick={() => setMonthOffset((prev) => prev - 1)}
-          >
-            ← Mes anterior
-          </button>
-          <button
-            className={`px-3 py-1 text-sm rounded hover:bg-gray-300 ${monthOffset !== 0 ? 'bg-yellow-300 text-gray-800 font-semibold' : 'bg-gray-200'}`}
-            onClick={() => setMonthOffset(0)}
-          >
-            Mes actual
-          </button>
-          <button
-            className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-            onClick={() => setMonthOffset((prev) => prev + 1)}
-          >
-            Mes siguiente →
-          </button>
+          <button className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300" onClick={() => setMonthOffset(m => m - 1)}>← Mes anterior</button>
+          <button className={`px-3 py-1 text-sm rounded hover:bg-gray-300 ${monthOffset !== 0 ? 'bg-yellow-300 text-gray-800 font-semibold' : 'bg-gray-200'}`} onClick={() => setMonthOffset(0)}>Mes actual</button>
+          <button className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300" onClick={() => setMonthOffset(m => m + 1)}>Mes siguiente →</button>
         </div>
         <h2 className="text-lg font-semibold capitalize text-center w-full sm:w-auto">
           {formatMonthTitle(viewDate)}
         </h2>
-        <div className="flex gap-2 items-center">
-          <label className="text-sm">Fijar kinesiólogo:</label>
-          <select
-            className="border px-2 py-1 text-sm rounded"
-            value={fixedTherapist?.id || ""}
-            onChange={(e) => {
-              const selected = kinesiologistsMock.find(k => k.id === e.target.value);
-              setFixedTherapist(selected || null);
-            }}
-          >
-            <option value="">-- Ninguno --</option>
-            {kinesiologistsMock.map(k => (
-              <option key={k.id} value={k.id}>{k.name} ({k.initials})</option>
-            ))}
-          </select>
-        </div>
+        <TherapistSelectorListFixed
+          fixedTherapist={fixedTherapist}
+          onChange={setFixedTherapist}
+        />
       </div>
 
-      <table className="min-w-full border text-sm">
+      {errorMsg && <div className="text-sm text-red-600 mb-2">{errorMsg}</div>}
+
+      <table className="min-w-full border text-xs">
         <thead>
           <tr>
-            <th className="border px-2 py-1 bg-gray-100 sticky left-0 z-10">Paciente</th>
-            <th className="border px-2 py-1 bg-gray-100 sticky left-[140px] z-10">Sesiones totales</th>
-            <th className="border px-2 py-1 bg-gray-100 sticky left-[200px] z-10">Atendidas</th>
-            <th className="border px-2 py-1 bg-gray-100 sticky left-[280px] z-10">Pendientes</th>
+            <th className="border px-2 py-1 bg-white sticky left-0 z-10">Paciente</th>
+            <th className="border px-2 py-1 bg-white sticky left-[140px] z-10 text-center">Sesiones</th>
             {dates.map((date) => {
               const isCurrentMonth = date.getMonth() === currentMonth;
               const isToday = date.toISOString().split("T")[0] === todayStr;
@@ -164,10 +162,7 @@ export default function Matrix() {
                 ? "bg-blue-50 text-blue-800"
                 : "bg-gray-50 text-gray-400";
               return (
-                <th
-                  key={date.toISOString()}
-                  className={`border px-2 py-1 text-center ${className}`}
-                >
+                <th key={date.toISOString()} className={`border px-2 py-1 text-center text-xs ${className}`}>
                   {date.getDate()}
                 </th>
               );
@@ -175,43 +170,36 @@ export default function Matrix() {
           </tr>
         </thead>
         <tbody>
-          {data.map((patientRow, idx) => {
+          {sessionsLoaded && data.map((p) => {
             const monthDates = dates.filter(date => date.getMonth() === currentMonth);
-            const sessionDates = patientRow.sessions.map(s => s.date);
-            const attended = monthDates.filter(date => sessionDates.includes(date.toISOString().split("T")[0])).length;
-            const total = monthDates.length;
-            const pending = total - attended;
-
+            const attended = monthDates.filter(date => p.sessions.some(s => s.date === date.toISOString().split("T")[0])).length;
             return (
-              <tr key={idx}>
-                <td className="border px-2 py-1 sticky left-0 bg-white z-0 whitespace-nowrap">{patientRow.patient}</td>
-                <td className="border px-2 py-1 text-center sticky left-[140px] bg-white z-0">{total}</td>
-                <td className="border px-2 py-1 text-center sticky left-[200px] bg-white z-0">{attended}</td>
-                <td className="border px-2 py-1 text-center sticky left-[280px] bg-white z-0">{pending}</td>
+              <tr key={p.id}>
+                <td className="border px-2 py-1 sticky left-0 bg-white z-0 whitespace-nowrap">{p.patient}</td>
+                <td className="border px-2 py-1 text-center sticky left-[140px] bg-white z-0 font-medium">{p.sessions_quantity} / {attended}</td>
                 {dates.map((date) => {
                   const dateStr = date.toISOString().split("T")[0];
-                  const session = patientRow.sessions.find((s) => s.date === dateStr);
+                  const session = p.sessions.find(s => s.date === dateStr);
                   const isToday = dateStr === todayStr;
                   return (
-                   
                     <td
                       key={dateStr}
-                      className={`border px-2 py-1 text-center cursor-pointer hover:bg-gray-100 ${isToday ? 'bg-yellow-50' : ''}`}
-                      onClick={() => handleCellClick(idx, dateStr)}
+                      className={`border px-2 py-1 text-center text-xs cursor-pointer hover:bg-gray-100 ${isToday ? 'bg-yellow-50' : ''}`}
+                      onClick={() => handleCellClick(p.id, dateStr)}
                       onDoubleClick={() => {
                         if (fixedTherapist) {
-                          setData((prev) => {
-                            const updated = [...prev];
-                            updated[idx].sessions = updated[idx].sessions.filter(s => s.date !== dateStr);
-                            return updated;
-                          });
+                          setData(prev =>
+                            prev.map((item) =>
+                              item.id === p.id
+                                ? { ...item, sessions: item.sessions.filter(s => s.date !== dateStr) }
+                                : item
+                            )
+                          );
                         }
                       }}
                     >
-                      {session ? session.therapist : ""}
+                      {session?.therapist || ""}
                     </td>
-
-
                   );
                 })}
               </tr>
@@ -220,19 +208,14 @@ export default function Matrix() {
         </tbody>
       </table>
 
-      {selectedCell && !fixedTherapist && (
-        <TherapistSelector
-          onSelect={assignTherapist}
-          onCancel={() => setSelectedCell(null)}
-          onRemove={removeTherapist}
-          visibleRemove={hasTherapistAssigned}
-        />
-      )}
+      <TherapistSummary therapistStats={therapistStats} />
 
-      <TherapistSummary 
-        therapistStats={therapistStats} 
-        kinesiologists={kinesiologistsMock} 
-      />
+      <button
+        className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 mt-4"
+        onClick={handleSaveChanges}
+      >
+        Guardar cambios
+      </button>
     </div>
   );
 }
