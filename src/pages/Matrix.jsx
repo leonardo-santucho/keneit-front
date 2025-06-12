@@ -1,3 +1,4 @@
+// src/pages/Matrix.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { fetchPatients } from "../services/patients";
 import { fetchSessions, saveSessionsBulk } from "../services/sessions";
@@ -21,6 +22,7 @@ export default function Matrix() {
   const currentYear = viewDate.getFullYear();
   const startDate = new Date(currentYear, currentMonth, -3);
   const endDate = new Date(currentYear, currentMonth + 1, 3);
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const dates = useMemo(() => {
     const result = [];
@@ -32,35 +34,33 @@ export default function Matrix() {
     return result;
   }, [startDate, endDate]);
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const loadData = async () => {
+    try {
+      const [patients, sessions] = await Promise.all([
+        fetchPatients(),
+        fetchSessions({ year: currentYear, month: currentMonth + 1 }),
+      ]);
+
+      const mapped = patients.map((p) => ({
+        id: p.id,
+        patient: `${p.name} ${p.last_name}`,
+        sessions_quantity: p.sessions_quantity || 0,
+        sessions: sessions
+          .filter(s => s.patient_id === p.id)
+          .map(s => ({
+            date: new Date(s.session_date).toISOString().split("T")[0],
+            therapist: s.therapist_initials
+          }))
+      }));
+
+      setData(mapped);
+      setSessionsLoaded(true);
+    } catch (err) {
+      console.error("Error al cargar pacientes o sesiones:", err);
+    }
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [patients, sessions] = await Promise.all([
-          fetchPatients(),
-          fetchSessions({ year: viewDate.getFullYear(), month: viewDate.getMonth() + 1 })
-        ]);
-
-        const mapped = patients.map((p) => ({
-          id: p.id,
-          patient: `${p.name} ${p.last_name}`,
-          sessions_quantity: p.sessions_quantity || 0,
-          sessions: sessions
-            .filter(s => s.patient_id === p.id)
-            .map(s => ({
-              date: s.session_date,
-              therapist: s.therapist_initials
-            }))
-        }));
-
-        setData(mapped);
-        setSessionsLoaded(true);
-      } catch (err) {
-        console.error("Error al cargar pacientes o sesiones:", err);
-      }
-    };
-
     loadData();
   }, [viewDate]);
 
@@ -74,8 +74,6 @@ export default function Matrix() {
   };
 
   const assignTherapist = (therapist, patientId, date) => {
-    if (!therapist?.initials) return;
-
     setData((prev) =>
       prev.map((p) => {
         if (p.id !== patientId) return p;
@@ -104,7 +102,12 @@ export default function Matrix() {
     );
 
     try {
-      await saveSessionsBulk(flatSessions);
+      await saveSessionsBulk({
+        year: currentYear,
+        month: currentMonth + 1,
+        sessions: flatSessions,
+      });
+      await loadData();
       alert("Sesiones guardadas con éxito.");
     } catch (err) {
       console.error("Error al guardar sesiones:", err);
@@ -112,13 +115,12 @@ export default function Matrix() {
     }
   };
 
-  const formatMonthTitle = (date) => {
-    return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-  };
+  const formatMonthTitle = (date) =>
+    date.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
 
   const monthDateStrs = dates
-    .filter(date => date.getMonth() === currentMonth)
-    .map(date => date.toISOString().split("T")[0]);
+    .filter((date) => date.getMonth() === currentMonth)
+    .map((date) => date.toISOString().split("T")[0]);
 
   const therapistStats = {};
   data.forEach((patient) => {
@@ -133,11 +135,11 @@ export default function Matrix() {
     <div className="overflow-auto">
       <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
         <div className="flex gap-2">
-          <button className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300" onClick={() => setMonthOffset(m => m - 1)}>← Mes anterior</button>
-          <button className={`px-3 py-1 text-sm rounded hover:bg-gray-300 ${monthOffset !== 0 ? 'bg-yellow-300 text-gray-800 font-semibold' : 'bg-gray-200'}`} onClick={() => setMonthOffset(0)}>Mes actual</button>
-          <button className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300" onClick={() => setMonthOffset(m => m + 1)}>Mes siguiente →</button>
+          <button onClick={() => setMonthOffset((m) => m - 1)}>← Mes anterior</button>
+          <button onClick={() => setMonthOffset(0)}>Mes actual</button>
+          <button onClick={() => setMonthOffset((m) => m + 1)}>Mes siguiente →</button>
         </div>
-        <h2 className="text-lg font-semibold capitalize text-center w-full sm:w-auto">
+        <h2 className="text-lg font-semibold capitalize">
           {formatMonthTitle(viewDate)}
         </h2>
         <TherapistSelectorListFixed
@@ -146,23 +148,24 @@ export default function Matrix() {
         />
       </div>
 
-      {errorMsg && <div className="text-sm text-red-600 mb-2">{errorMsg}</div>}
+      {errorMsg && <div className="text-red-600">{errorMsg}</div>}
 
       <table className="min-w-full border text-xs">
         <thead>
           <tr>
-            <th className="border px-2 py-1 bg-white sticky left-0 z-10">Paciente</th>
-            <th className="border px-2 py-1 bg-white sticky left-[140px] z-10 text-center">Sesiones</th>
+            <th>Paciente</th>
+            <th>Sesiones</th>
             {dates.map((date) => {
+              const dateStr = date.toISOString().split("T")[0];
+              const isToday = dateStr === todayStr;
               const isCurrentMonth = date.getMonth() === currentMonth;
-              const isToday = date.toISOString().split("T")[0] === todayStr;
               const className = isToday
-                ? "bg-yellow-100 text-black"
+                ? "bg-yellow-100"
                 : isCurrentMonth
-                ? "bg-blue-50 text-blue-800"
-                : "bg-gray-50 text-gray-400";
+                ? "bg-blue-50"
+                : "bg-gray-50";
               return (
-                <th key={date.toISOString()} className={`border px-2 py-1 text-center text-xs ${className}`}>
+                <th key={dateStr} className={className}>
                   {date.getDate()}
                 </th>
               );
@@ -170,50 +173,52 @@ export default function Matrix() {
           </tr>
         </thead>
         <tbody>
-          {sessionsLoaded && data.map((p) => {
-            const monthDates = dates.filter(date => date.getMonth() === currentMonth);
-            const attended = monthDates.filter(date => p.sessions.some(s => s.date === date.toISOString().split("T")[0])).length;
-            return (
-              <tr key={p.id}>
-                <td className="border px-2 py-1 sticky left-0 bg-white z-0 whitespace-nowrap">{p.patient}</td>
-                <td className="border px-2 py-1 text-center sticky left-[140px] bg-white z-0 font-medium">{p.sessions_quantity} / {attended}</td>
-                {dates.map((date) => {
-                  const dateStr = date.toISOString().split("T")[0];
-                  const session = p.sessions.find(s => s.date === dateStr);
-                  const isToday = dateStr === todayStr;
-                  return (
-                    <td
-                      key={dateStr}
-                      className={`border px-2 py-1 text-center text-xs cursor-pointer hover:bg-gray-100 ${isToday ? 'bg-yellow-50' : ''}`}
-                      onClick={() => handleCellClick(p.id, dateStr)}
-                      onDoubleClick={() => {
-                        if (fixedTherapist) {
-                          setData(prev =>
-                            prev.map((item) =>
-                              item.id === p.id
-                                ? { ...item, sessions: item.sessions.filter(s => s.date !== dateStr) }
-                                : item
-                            )
-                          );
-                        }
-                      }}
-                    >
-                      {session?.therapist || ""}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
+          {sessionsLoaded &&
+            data.map((p) => {
+              const attended = p.sessions.filter((s) =>
+                monthDateStrs.includes(s.date)
+              ).length;
+              return (
+                <tr key={p.id}>
+                  <td>{p.patient}</td>
+                  <td>{p.sessions_quantity} / {attended}</td>
+                  {dates.map((date) => {
+                    const dateStr = date.toISOString().split("T")[0];
+                    const session = p.sessions.find((s) => s.date === dateStr);
+                    return (
+                      <td
+                        key={dateStr}
+                        onClick={() => handleCellClick(p.id, dateStr)}
+                        onDoubleClick={() => {
+                          if (fixedTherapist) {
+                            setData((prev) =>
+                              prev.map((item) =>
+                                item.id === p.id
+                                  ? {
+                                      ...item,
+                                      sessions: item.sessions.filter(
+                                        (s) => s.date !== dateStr
+                                      ),
+                                    }
+                                  : item
+                              )
+                            );
+                          }
+                        }}
+                      >
+                        {session?.therapist || ""}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
         </tbody>
       </table>
 
       <TherapistSummary therapistStats={therapistStats} />
 
-      <button
-        className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 mt-4"
-        onClick={handleSaveChanges}
-      >
+      <button onClick={handleSaveChanges} className="bg-green-600 text-white px-3 py-1 rounded mt-4">
         Guardar cambios
       </button>
     </div>
