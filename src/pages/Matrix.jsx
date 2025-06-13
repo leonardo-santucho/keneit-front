@@ -1,9 +1,10 @@
-// src/pages/Matrix.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { fetchPatients } from "../services/patients";
 import { fetchSessions, saveSessionsBulk } from "../services/sessions";
 import TherapistSummary from "../components/TherapistSummary";
 import TherapistSelectorListFixed from "../components/TherapistSelectorListFixed";
+import ModalAlert from "../components/Modals/ModalAlert";
+import SelectHomeModal from "../components/Homes/SelectHomeModal";
 
 export default function Matrix() {
   const [data, setData] = useState([]);
@@ -11,6 +12,12 @@ export default function Matrix() {
   const [fixedTherapist, setFixedTherapist] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
+
+  const [modalMessage, setModalMessage] = useState("");
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [showSelectHomeModal, setShowSelectHomeModal] = useState(false);
+
+  const therapistId = "58abeff5-7e6b-4d01-8b3e-302dafa9dc7c"; // Marcela López (prueba)
 
   const baseDate = useMemo(() => new Date(), []);
   const viewDate = useMemo(
@@ -65,12 +72,28 @@ export default function Matrix() {
   }, [viewDate]);
 
   const handleCellClick = (patientId, date) => {
-    if (fixedTherapist) {
-      assignTherapist(fixedTherapist, patientId, date);
-      setErrorMsg("");
-    } else {
+    if (!fixedTherapist) {
       setErrorMsg("Debe seleccionar un kinesiólogo");
+      return;
     }
+
+    const patient = data.find(p => p.id === patientId);
+    const currentMonthSessions = patient.sessions.filter(s => {
+      const sessionMonth = new Date(s.date).getMonth();
+      const sessionYear = new Date(s.date).getFullYear();
+      return sessionMonth === currentMonth && sessionYear === currentYear;
+    });
+
+    if (currentMonthSessions.length >= patient.sessions_quantity) {
+      setModalMessage(
+        `${patient.patient} ya tiene ${currentMonthSessions.length} sesiones asignadas de ${patient.sessions_quantity} contratadas.`
+      );
+      setShowAlertModal(true);
+      return;
+    }
+
+    assignTherapist(fixedTherapist, patientId, date);
+    setErrorMsg("");
   };
 
   const assignTherapist = (therapist, patientId, date) => {
@@ -133,6 +156,36 @@ export default function Matrix() {
 
   return (
     <div className="overflow-auto">
+
+      {/* Botón de prueba */}
+      <button
+        onClick={() => setShowSelectHomeModal(true)}
+        className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
+      >
+        Seleccionar hogar (prueba)
+      </button>
+
+      {/* Modal para seleccionar hogar */}
+      {showSelectHomeModal && (
+        <SelectHomeModal
+          therapistId={therapistId}
+          onSelect={(homeId) => {
+            console.log("Hogar seleccionado:", homeId);
+          }}
+          onClose={() => setShowSelectHomeModal(false)}
+        />
+      )}
+
+      {/* Modal de alerta por exceso de sesiones */}
+      {showAlertModal && (
+        <ModalAlert
+          message={modalMessage}
+          icon="warning"
+          buttons={["OK"]}
+          onClose={() => setShowAlertModal(false)}
+        />
+      )}
+
       <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
         <div className="flex gap-2">
           <button onClick={() => setMonthOffset((m) => m - 1)}>← Mes anterior</button>
