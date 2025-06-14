@@ -51,7 +51,7 @@ export default function Matrix() {
         fetchPatients(),
         fetchSessions({ year: currentYear, month: currentMonth + 1 }),
         fetchMonthlyNote({
-          therapistId,
+          therapistId: "58abeff5-7e6b-4d01-8b3e-302dafa9dc7c", // Marcela López (prueba)
           homeId: "abc8d5c0-a034-460c-ba19-5dcc5310519c", // <- adaptar si es dinámico
           year: currentYear,
           month: currentMonth + 1,
@@ -281,7 +281,7 @@ export default function Matrix() {
 
       <div className="mt-6 max-w-xl">
         <NoteEditor
-          therapistId={therapistId}
+          therapistId={"58abeff5-7e6b-4d01-8b3e-302dafa9dc7c"} // Marcela López (prueba)
           homeId={"abc8d5c0-a034-460c-ba19-5dcc5310519c"} // reemplazá si vas a seleccionar hogar
           year={currentYear}
           month={currentMonth + 1}

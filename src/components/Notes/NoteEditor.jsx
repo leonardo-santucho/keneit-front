@@ -1,27 +1,32 @@
-// src/components/NoteEditor.jsx
 import React, { useState, useEffect } from "react";
-import { Check, Trash2 } from "lucide-react";
 import { createMonthlyNote, updateMonthlyNote } from "../../services/notes";
+import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
 export default function NoteEditor({
   therapistId,
   homeId,
   year,
   month,
-  existingNote, // { id, notes }
+  existingNote,
   onSaved,
 }) {
   const [note, setNote] = useState(existingNote?.notes || "");
   const [saving, setSaving] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     setNote(existingNote?.notes || "");
   }, [existingNote]);
 
+  const isUnchanged = note === (existingNote?.notes || "");
+  const isEmpty = note.trim().length === 0;
+
   const handleSave = async () => {
-    if (!note.trim()) return;
+    if (isUnchanged || isEmpty) return;
 
     setSaving(true);
+    setLocked(true);
     let result = null;
 
     if (existingNote?.id) {
@@ -38,36 +43,69 @@ export default function NoteEditor({
 
     setSaving(false);
     if (result && onSaved) onSaved(result);
+
+    setTimeout(() => {
+      setLocked(false);
+    }, 1000);
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
+    if (isEmpty) return;
+
     setNote("");
+
+    if (existingNote?.id) {
+      try {
+        const result = await updateMonthlyNote({ id: existingNote.id, notes: "" });
+        if (onSaved) onSaved(result);
+      } catch (err) {
+        console.error("Error al limpiar nota:", err);
+      }
+    }
   };
 
   return (
-    <div className="relative border rounded-lg p-2 bg-white">
-      <label className="text-sm font-medium text-gray-700 mb-1 block">Notas</label>
-      <textarea
-        className="w-full h-24 p-2 rounded-md border resize-none text-sm"
-        placeholder="Escriba una nota..."
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-      />
+    <div className="p-2">
+      <label className="text-sm font-semibold text-gray-700 block mb-2">
+        Notas
+      </label>
 
-      <div className="absolute bottom-2 right-2 flex gap-2">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="text-green-600 hover:text-green-800"
-        >
-          <Check size={18} />
-        </button>
-        <button
-          onClick={handleClear}
-          className="text-red-600 hover:text-red-800"
-        >
-          <Trash2 size={18} />
-        </button>
+      <div className="relative">
+        <textarea
+          className="w-full h-28 border border-gray-300 rounded-lg text-sm p-3 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-400"
+          placeholder="Agregar tus notas"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+
+     
+<div className="flex justify-end mt-3 gap-2">
+  <button
+    onClick={handleSave}
+    disabled={saving || locked || isUnchanged || isEmpty}
+    className={`w-8 h-8 rounded-full flex items-center justify-center transition
+      ${saving || locked || isUnchanged || isEmpty
+        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+        : "bg-gray-200 text-gray-600 hover:bg-gray-300"}`}
+    title="Guardar nota"
+  >
+    <CheckCircleOutlinedIcon fontSize="small" />
+  </button>
+
+  <button
+    onClick={handleClear}
+    disabled={isEmpty}
+    className={`w-8 h-8 rounded-full flex items-center justify-center transition
+      ${isEmpty
+        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+        : "bg-gray-200 text-gray-600 hover:bg-gray-300"}`}
+    title="Eliminar nota"
+  >
+    <DeleteOutlineIcon fontSize="small" />
+  </button>
+</div>
+
+
       </div>
     </div>
   );

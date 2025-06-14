@@ -1,11 +1,13 @@
 // src/services/notes.js
-const BASE_URL = import.meta.env.VITE_API_URL; // por ejemplo: http://localhost:3001/api
+const API_URL = import.meta.env.VITE_API_URL;
 
 // Obtener nota mensual
 export async function fetchMonthlyNote({ therapistId, homeId, year, month }) {
   try {
+
+    debugger; // Para depuración, eliminar en producción
     const res = await fetch(
-      `${BASE_URL}/notes?therapistId=${therapistId}&homeId=${homeId}&year=${year}&month=${month}`
+      `${API_URL}/api/monthly-notes?therapistId=${therapistId}&homeId=${homeId}&year=${year}&month=${month}`
     );
     if (!res.ok) throw new Error('Error al buscar la nota');
     return await res.json();
@@ -18,7 +20,7 @@ export async function fetchMonthlyNote({ therapistId, homeId, year, month }) {
 // Crear una nueva nota mensual
 export async function createMonthlyNote({ therapistId, homeId, year, month, notes }) {
   try {
-    const res = await fetch(`${BASE_URL}/notes`, {
+    const res = await fetch(`${API_URL}/api/monthly-notes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ therapistId, homeId, year, month, notes }),
@@ -34,7 +36,7 @@ export async function createMonthlyNote({ therapistId, homeId, year, month, note
 // Actualizar una nota existente
 export async function updateMonthlyNote({ id, notes }) {
   try {
-    const res = await fetch(`${BASE_URL}/notes/${id}`, {
+    const res = await fetch(`${API_URL}/api/monthly-notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notes }),
