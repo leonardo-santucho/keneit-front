@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { fetchPatients } from "../services/patients";
 import { fetchSessions, saveSessionsBulk } from "../services/sessions";
+import { fetchMonthlyNote } from "../services/notes";
 import TherapistSummary from "../components/TherapistSummary";
 import TherapistSelectorListFixed from "../components/TherapistSelectorListFixed";
 import ModalAlert from "../components/Modals/ModalAlert";
 import SelectHomeModal from "../components/Homes/SelectHomeModal";
+import NoteEditor from "../components/Notes/NoteEditor";
 
 export default function Matrix() {
   const [data, setData] = useState([]);
   const [monthOffset, setMonthOffset] = useState(0);
   const [fixedTherapist, setFixedTherapist] = useState(null);
+  const [deleteMode, setDeleteMode] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [noteData, setNoteData] = useState(null); // 📝 nota mensual
 
   const [modalMessage, setModalMessage] = useState("");
   const [showAlertModal, setShowAlertModal] = useState(false);
@@ -43,9 +47,15 @@ export default function Matrix() {
 
   const loadData = async () => {
     try {
-      const [patients, sessions] = await Promise.all([
+      const [patients, sessions, note] = await Promise.all([
         fetchPatients(),
         fetchSessions({ year: currentYear, month: currentMonth + 1 }),
+        fetchMonthlyNote({
+          therapistId,
+          homeId: "abc8d5c0-a034-460c-ba19-5dcc5310519c", // <- adaptar si es dinámico
+          year: currentYear,
+          month: currentMonth + 1,
+        }),
       ]);
 
       const mapped = patients.map((p) => ({
@@ -61,9 +71,10 @@ export default function Matrix() {
       }));
 
       setData(mapped);
+      setNoteData(note);
       setSessionsLoaded(true);
     } catch (err) {
-      console.error("Error al cargar pacientes o sesiones:", err);
+      console.error("Error al cargar pacientes, sesiones o notas:", err);
     }
   };
 
@@ -72,6 +83,17 @@ export default function Matrix() {
   }, [viewDate]);
 
   const handleCellClick = (patientId, date) => {
+    if (deleteMode) {
+      setData(prev =>
+        prev.map(p =>
+          p.id === patientId
+            ? { ...p, sessions: p.sessions.filter(s => s.date !== date) }
+            : p
+        )
+      );
+      return;
+    }
+
     if (!fixedTherapist) {
       setErrorMsg("Debe seleccionar un kinesiólogo");
       return;
@@ -156,8 +178,6 @@ export default function Matrix() {
 
   return (
     <div className="overflow-auto">
-
-      {/* Botón de prueba */}
       <button
         onClick={() => setShowSelectHomeModal(true)}
         className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
@@ -165,7 +185,6 @@ export default function Matrix() {
         Seleccionar hogar (prueba)
       </button>
 
-      {/* Modal para seleccionar hogar */}
       {showSelectHomeModal && (
         <SelectHomeModal
           therapistId={therapistId}
@@ -176,7 +195,6 @@ export default function Matrix() {
         />
       )}
 
-      {/* Modal de alerta por exceso de sesiones */}
       {showAlertModal && (
         <ModalAlert
           message={modalMessage}
@@ -198,10 +216,11 @@ export default function Matrix() {
         <TherapistSelectorListFixed
           fixedTherapist={fixedTherapist}
           onChange={setFixedTherapist}
+          deleteMode={deleteMode}
+          onDeleteModeChange={setDeleteMode}
+          showError={!!errorMsg}
         />
       </div>
-
-      {errorMsg && <div className="text-red-600">{errorMsg}</div>}
 
       <table className="min-w-full border text-xs">
         <thead>
@@ -241,23 +260,8 @@ export default function Matrix() {
                     return (
                       <td
                         key={dateStr}
+                        className={deleteMode ? "bg-red-100 cursor-pointer" : "cursor-pointer"}
                         onClick={() => handleCellClick(p.id, dateStr)}
-                        onDoubleClick={() => {
-                          if (fixedTherapist) {
-                            setData((prev) =>
-                              prev.map((item) =>
-                                item.id === p.id
-                                  ? {
-                                      ...item,
-                                      sessions: item.sessions.filter(
-                                        (s) => s.date !== dateStr
-                                      ),
-                                    }
-                                  : item
-                              )
-                            );
-                          }
-                        }}
                       >
                         {session?.therapist || ""}
                       </td>
@@ -274,6 +278,17 @@ export default function Matrix() {
       <button onClick={handleSaveChanges} className="bg-green-600 text-white px-3 py-1 rounded mt-4">
         Guardar cambios
       </button>
+
+      <div className="mt-6 max-w-xl">
+        <NoteEditor
+          therapistId={therapistId}
+          homeId={"abc8d5c0-a034-460c-ba19-5dcc5310519c"} // reemplazá si vas a seleccionar hogar
+          year={currentYear}
+          month={currentMonth + 1}
+          existingNote={noteData}
+          onSaved={setNoteData}
+        />
+      </div>
     </div>
   );
 }
