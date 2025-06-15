@@ -5,7 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 export async function fetchMonthlyNote({ therapistId, homeId, year, month }) {
   try {
 
-    debugger; // Para depuración, eliminar en producción
+    // debugger; // Para depuración, eliminar en producción
     const res = await fetch(
       `${API_URL}/api/monthly-notes?therapistId=${therapistId}&homeId=${homeId}&year=${year}&month=${month}`
     );
