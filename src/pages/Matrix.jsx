@@ -178,22 +178,6 @@ export default function Matrix() {
 
   return (
     <div className="overflow-auto">
-      <button
-        onClick={() => setShowSelectHomeModal(true)}
-        className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
-      >
-        Seleccionar hogar (prueba)
-      </button>
-
-      {showSelectHomeModal && (
-        <SelectHomeModal
-          therapistId={therapistId}
-          onSelect={(homeId) => {
-            console.log("Hogar seleccionado:", homeId);
-          }}
-          onClose={() => setShowSelectHomeModal(false)}
-        />
-      )}
 
       {showAlertModal && (
         <ModalAlert
