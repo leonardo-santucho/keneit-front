@@ -1,25 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { fetchTherapists } from "../services/therapists";
+import React from "react";
 import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
 
 export default function TherapistSelectorListFixed({
+  therapists = [],
   fixedTherapist,
   onChange,
   deleteMode,
   onDeleteModeChange,
   showError,
 }) {
-  const [therapists, setTherapists] = useState([]);
-
-  useEffect(() => {
-    fetchTherapists()
-      .then(setTherapists)
-      .catch((err) => {
-        console.error("Error al cargar therapists:", err);
-        setTherapists([]);
-      });
-  }, []);
-
   return (
     <div className="flex flex-col gap-1">
       {showError && (

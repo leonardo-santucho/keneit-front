@@ -1,11 +1,10 @@
-// src/components/Topbar.jsx
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import { ExitToApp } from "@mui/icons-material";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getHomesByTherapist } from "../services/therapists";
-
+import { useHome } from "../context/HomeContext";
 
 export default function Topbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -13,8 +12,8 @@ export default function Topbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const { homeId: selectedHomeId, setHomeId: setSelectedHomeId } = useHome();
   const [homes, setHomes] = useState([]);
-  const [selectedHomeId, setSelectedHomeId] = useState(() => localStorage.getItem('selectedHomeId'));
 
   useEffect(() => {
     if (user?.therapist_id) {
@@ -42,9 +41,7 @@ export default function Topbar() {
   };
 
   const handleHomeChange = (e) => {
-    const homeId = e.target.value;
-    setSelectedHomeId(homeId);
-    localStorage.setItem('selectedHomeId', homeId);
+    setSelectedHomeId(e.target.value);
   };
 
   return (
@@ -82,12 +79,12 @@ export default function Topbar() {
           {menuOpen && (
             <div className="absolute left-1/2 z-20 mt-3 min-w-max -translate-x-1/2 rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
               <div className="p-4 space-y-3 w-72">
-                <FlyoutItem label="Dashboard" description="General overview" to="/" onClick={() => setMenuOpen(false)} />
-                <FlyoutItem label="Patients" description="View history and progress" to="/patients" onClick={() => setMenuOpen(false)} />
-                <FlyoutItem label="Segumiento diario" description="Realice el seguimiento diario de los pacientes" to="/patients-daily-follow-up" onClick={() => setMenuOpen(false)} />
-                <FlyoutItem label="Matrix" description="Matriz de sesiones" to="/matrix" onClick={() => setMenuOpen(false)} />
-                <FlyoutItem label="Treatments" description="Therapies and frequencies" to="/treatments" onClick={() => setMenuOpen(false)} />
-                <FlyoutItem label="Settings" description="Account and preferences" to="/settings" onClick={() => setMenuOpen(false)} />
+                <FlyoutItem label="Dashboard" to="/" description="General overview" onClick={() => setMenuOpen(false)} />
+                <FlyoutItem label="Patients" to="/patients" description="View history and progress" onClick={() => setMenuOpen(false)} />
+                <FlyoutItem label="Segumiento diario" to="/patients-daily-follow-up" description="Realice el seguimiento diario de los pacientes" onClick={() => setMenuOpen(false)} />
+                <FlyoutItem label="Matrix" to="/matrix" description="Matriz de sesiones" onClick={() => setMenuOpen(false)} />
+                <FlyoutItem label="Treatments" to="/treatments" description="Therapies and frequencies" onClick={() => setMenuOpen(false)} />
+                <FlyoutItem label="Settings" to="/settings" description="Account and preferences" onClick={() => setMenuOpen(false)} />
               </div>
             </div>
           )}

@@ -1,12 +1,14 @@
+// src/pages/Matrix.jsx
 import React, { useState, useEffect, useMemo } from "react";
-import { fetchPatients } from "../services/patients";
+import { fetchPatientsByHomeId } from "../services/patients";
 import { fetchSessions, saveSessionsBulk } from "../services/sessions";
 import { fetchMonthlyNote } from "../services/notes";
+import { fetchTherapistsByHome } from "../services/therapists";
 import TherapistSummary from "../components/TherapistSummary";
 import TherapistSelectorListFixed from "../components/TherapistSelectorListFixed";
 import ModalAlert from "../components/Modals/ModalAlert";
-import SelectHomeModal from "../components/Homes/SelectHomeModal";
 import NoteEditor from "../components/Notes/NoteEditor";
+import { useHome } from "../context/HomeContext";
 
 export default function Matrix() {
   const [data, setData] = useState([]);
@@ -15,13 +17,14 @@ export default function Matrix() {
   const [deleteMode, setDeleteMode] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
-  const [noteData, setNoteData] = useState(null); // 📝 nota mensual
+  const [noteData, setNoteData] = useState(null);
+  const [availableTherapists, setAvailableTherapists] = useState([]);
 
   const [modalMessage, setModalMessage] = useState("");
   const [showAlertModal, setShowAlertModal] = useState(false);
-  const [showSelectHomeModal, setShowSelectHomeModal] = useState(false);
 
-  const therapistId = "58abeff5-7e6b-4d01-8b3e-302dafa9dc7c"; // Marcela López (prueba)
+  const therapistId = "58abeff5-7e6b-4d01-8b3e-302dafa9dc7c"; // Marcela López
+  const { homeId } = useHome();
 
   const baseDate = useMemo(() => new Date(), []);
   const viewDate = useMemo(
@@ -46,13 +49,15 @@ export default function Matrix() {
   }, [startDate, endDate]);
 
   const loadData = async () => {
+    if (!homeId) return;
     try {
-      const [patients, sessions, note] = await Promise.all([
-        fetchPatients(),
+      const [therapists, patients, sessions, note] = await Promise.all([
+        fetchTherapistsByHome(homeId),
+        fetchPatientsByHomeId(homeId),
         fetchSessions({ year: currentYear, month: currentMonth + 1 }),
         fetchMonthlyNote({
-          therapistId: "58abeff5-7e6b-4d01-8b3e-302dafa9dc7c", // Marcela López (prueba)
-          homeId: "abc8d5c0-a034-460c-ba19-5dcc5310519c", // <- adaptar si es dinámico
+          therapistId,
+          homeId,
           year: currentYear,
           month: currentMonth + 1,
         }),
@@ -63,31 +68,32 @@ export default function Matrix() {
         patient: `${p.name} ${p.last_name}`,
         sessions_quantity: p.sessions_quantity || 0,
         sessions: sessions
-          .filter(s => s.patient_id === p.id)
-          .map(s => ({
+          .filter((s) => s.patient_id === p.id)
+          .map((s) => ({
             date: new Date(s.session_date).toISOString().split("T")[0],
-            therapist: s.therapist_initials
-          }))
+            therapist: s.therapist_initials,
+          })),
       }));
 
       setData(mapped);
       setNoteData(note);
+      setAvailableTherapists(therapists);
       setSessionsLoaded(true);
     } catch (err) {
-      console.error("Error al cargar pacientes, sesiones o notas:", err);
+      console.error("Error al cargar datos:", err);
     }
   };
 
   useEffect(() => {
     loadData();
-  }, [viewDate]);
+  }, [viewDate, homeId]);
 
   const handleCellClick = (patientId, date) => {
     if (deleteMode) {
-      setData(prev =>
-        prev.map(p =>
+      setData((prev) =>
+        prev.map((p) =>
           p.id === patientId
-            ? { ...p, sessions: p.sessions.filter(s => s.date !== date) }
+            ? { ...p, sessions: p.sessions.filter((s) => s.date !== date) }
             : p
         )
       );
@@ -99,8 +105,8 @@ export default function Matrix() {
       return;
     }
 
-    const patient = data.find(p => p.id === patientId);
-    const currentMonthSessions = patient.sessions.filter(s => {
+    const patient = data.find((p) => p.id === patientId);
+    const currentMonthSessions = patient.sessions.filter((s) => {
       const sessionMonth = new Date(s.date).getMonth();
       const sessionYear = new Date(s.date).getFullYear();
       return sessionMonth === currentMonth && sessionYear === currentYear;
@@ -123,7 +129,7 @@ export default function Matrix() {
       prev.map((p) => {
         if (p.id !== patientId) return p;
         const sessions = [...p.sessions];
-        const existing = sessions.find(s => s.date === date);
+        const existing = sessions.find((s) => s.date === date);
         if (existing) {
           existing.therapist = therapist.initials;
         } else {
@@ -178,7 +184,6 @@ export default function Matrix() {
 
   return (
     <div className="overflow-auto">
-
       {showAlertModal && (
         <ModalAlert
           message={modalMessage}
@@ -198,6 +203,7 @@ export default function Matrix() {
           {formatMonthTitle(viewDate)}
         </h2>
         <TherapistSelectorListFixed
+          therapists={availableTherapists}
           fixedTherapist={fixedTherapist}
           onChange={setFixedTherapist}
           deleteMode={deleteMode}
@@ -265,8 +271,8 @@ export default function Matrix() {
 
       <div className="mt-6 max-w-xl">
         <NoteEditor
-          therapistId={"58abeff5-7e6b-4d01-8b3e-302dafa9dc7c"} // Marcela López (prueba)
-          homeId={"abc8d5c0-a034-460c-ba19-5dcc5310519c"} // reemplazá si vas a seleccionar hogar
+          therapistId={therapistId}
+          homeId={homeId}
           year={currentYear}
           month={currentMonth + 1}
           existingNote={noteData}

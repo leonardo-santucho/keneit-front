@@ -17,3 +17,11 @@ export const getHomesByTherapist = async (therapistId) => {
     if (!response.ok) throw new Error("Error al obtener kinesiólogos");
     return response.json();
 };
+
+export async function fetchTherapistsByHome(homeId) {
+  const res = await fetch(`${API_URL}/api/therapists?home_id=${homeId}`);
+  if (!res.ok) {
+    throw new Error("Error al obtener kinesiólogos por hogar");
+  }
+  return await res.json();
+}
